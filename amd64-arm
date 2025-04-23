@@ -34,8 +34,8 @@ mkdir -p /amd64/main_storage
 # setup_amd64
 cat <<EOF > /usr/bin/setup_amd64
 #!/bin/bash
-mount -t sysfs sys /amd64/sys/
-mount -t proc proc /amd64/proc/
+mountpoint -q /amd64/sys || mount -t sysfs sys /amd64/sys/
+mountpoint -q /amd64/proc || mount -t proc proc /amd64/proc/
 mount --bind /dev /amd64/dev/
 mount --bind /dev/pts /amd64/dev/pts/
 mount --bind /dev/shm /amd64/dev/shm/
