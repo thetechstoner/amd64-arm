@@ -84,6 +84,18 @@ chroot "$CHROOT_DIR" apt-get update
 # Setup locale
 chroot "$CHROOT_DIR" bash -c "apt-get install locales -y && sed -i '/en_US.UTF-8 UTF-8/ s/# *//' /etc/locale.gen && locale-gen && update-locale LANG=en_US.UTF-8"
 
+# create schroot config
+cat <<EOF | tee /etc/schroot/chroot.d/amd64.conf
+[amd64]
+description=Debian amd64 chroot
+directory=/amd64
+users=$(whoami)
+root-users=$(whoami)
+type=directory
+EOF
+chown root:root /etc/schroot/chroot.d/amd64.conf
+chmod 644 /etc/schroot/chroot.d/amd64.conf
+
 # Create desktop launcher
 mkdir -p /usr/share/applications/
 cat <<'EOF' > /usr/share/applications/amd64.desktop
@@ -91,7 +103,7 @@ cat <<'EOF' > /usr/share/applications/amd64.desktop
 Name=amd64-arm - Terminal
 Type=Application
 Comment=Launch amd64-arm environment
-Exec=lxterminal --title="amd64-arm - Terminal" -e "sudo -p 'Please type your password and press ENTER to continue (may not be visible when typing): ' chroot /amd64/ /bin/bash"
+Exec=lxterminal --title="amd64-arm - Terminal" -e "schroot -c amd64 /bin/bash"
 Icon=terminal
 Terminal=false
 Categories=Utility;
@@ -100,7 +112,7 @@ EOF
 # Create launcher script
 cat <<'EOF' > /usr/bin/amd64
 #!/bin/bash
-sudo -p 'Please type your password and press ENTER to continue (may not be visible when typing): ' chroot /amd64/ /bin/bash
+schroot -c amd64 /bin/bash
 EOF
 chmod 755 /usr/bin/amd64
 
