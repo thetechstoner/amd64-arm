@@ -23,7 +23,7 @@ umount /amd64/main_storage/ &>/dev/null || true
 rm -rf /amd64/
 
 # Install all required dependencies
-apt-get update && apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal
+apt-get update && apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal debian-archive-keyring
 
 # Setup Debian x86 chroot
 [[ "$1" != "" ]] && debootstrap --no-check-gpg --foreign --arch amd64 "$1" /amd64 http://ftp.us.debian.org/debian || debootstrap --no-check-gpg --foreign --arch amd64 "$DEF_VER" /amd64 http://ftp.us.debian.org/debian
