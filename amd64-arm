@@ -26,7 +26,7 @@ rm -rf /amd64/
 apt-get update && apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal debian-archive-keyring
 
 # Setup Debian x86 chroot
-[[ "$1" != "" ]] && debootstrap --no-check-gpg --foreign --arch amd64 "$1" /amd64 http://ftp.us.debian.org/debian || debootstrap --no-check-gpg --foreign --arch amd64 "$DEF_VER" /amd64 http://ftp.us.debian.org/debian
+[[ "$1" != "" ]] && debootstrap --no-check-gpg --foreign --arch amd64 "$1" /amd64 http://archive.debian.org/debian || debootstrap --no-check-gpg --foreign --arch amd64 "$DEF_VER" /amd64 http://archive.debian.org/debian
 
 # Create a directory for main storage in the chroot
 mkdir -p /amd64/main_storage
