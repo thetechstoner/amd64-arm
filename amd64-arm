@@ -26,7 +26,7 @@ if ! command -v apt-get &>/dev/null; then
     exit 1
 fi
 apt-get update
-apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal debian-archive-keyring
+apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal schroot debian-archive-keyring
 
 # Setup Debian x86 chroot
 DEB_VER="${1:-$DEF_VER}"
