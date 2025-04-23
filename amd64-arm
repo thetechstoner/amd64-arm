@@ -48,6 +48,7 @@ Description=Service to setup amd64 chroot environment
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/bin/setup_amd64
 
 [Install]
