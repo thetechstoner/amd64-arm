@@ -27,7 +27,7 @@ chmod +x <FULL_PATH_TO_DOWNLOADED_FILE>
 sudo <FULL_PATH_TO_DOWNLOADED_FILE>
 ```
 # usage
-amd64 # terminal command (access environment)
+amd64 # access environment
 exit # exit chroot environment
 
 # Wiki
