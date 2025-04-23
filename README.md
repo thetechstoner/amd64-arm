@@ -20,7 +20,7 @@ Set up an emulated Debian 64-bit (amd64) environment (Stretch, Buster doesn't wo
 
 # Setup amd64-arm on your ARM computer/SBC
 
-You need to download amd64-arm at https://raw.githubusercontent.com/RudraSwat/amd64-arm/master/amd64-arm and run the below commands in the terminal:
+You need to download amd64-arm at https://raw.githubusercontent.com/thetechstoner/amd64-arm/refs/heads/main/amd64-arm and run the below commands in the terminal:
 
 ```
 chmod +x <FULL_PATH_TO_DOWNLOADED_FILE>
