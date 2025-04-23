@@ -28,6 +28,7 @@ sudo <FULL_PATH_TO_DOWNLOADED_FILE>
 ```
 # usage
 amd64 # access environment
+
 exit # exit chroot environment
 
 # Wiki
