@@ -26,6 +26,9 @@ You need to download amd64-arm at https://raw.githubusercontent.com/thetechstone
 chmod +x <FULL_PATH_TO_DOWNLOADED_FILE>
 sudo <FULL_PATH_TO_DOWNLOADED_FILE>
 ```
+# usage
+amd64 # terminal command (access environment)
+exit # exit chroot environment
 
 # Wiki
 
