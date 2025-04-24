@@ -26,11 +26,20 @@ if ! command -v apt-get &>/dev/null; then
     exit 1
 fi
 apt-get update
-apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal schroot debian-archive-keyring
+apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal schroot
 
 # Setup Debian x86 chroot
 DEB_VER="${1:-$DEF_VER}"
-debootstrap --no-check-gpg --foreign --arch amd64 "$DEB_VER" "$CHROOT_DIR" http://archive.debian.org/debian
+# Compose the URL to check
+URL="https://ftp.debian.org/debian/dists/$DEB_VER/"
+# Use curl to check if the URL exists (HTTP 200)
+if curl --head --silent --fail "$URL" > /dev/null; then
+    DEB_MIRROR="http://deb.debian.org/debian"
+else
+    DEB_MIRROR="http://archive.debian.org/debian"
+    apt-get install -y debian-archive-keyring
+fi
+debootstrap --no-check-gpg --foreign --arch amd64 "$DEB_VER" "$CHROOT_DIR" "DEB_MIRROR"
 
 # Create setup_amd64 script
 cat <<'EOF' > /usr/bin/setup_amd64
