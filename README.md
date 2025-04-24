@@ -31,6 +31,8 @@ amd64 # access environment
 
 exit # exit chroot environment
 
+# or run amd64.desktop
+
 # Wiki
 
 The wiki is available at https://github.com/RudraSwat/amd64-arm/wiki.
