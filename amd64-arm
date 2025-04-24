@@ -15,7 +15,7 @@ echo 'Proceed? Doing so will remove an existing amd64-arm environment, if presen
 read
 
 # Remove existing chroot
-for mnt in sys proc dev/pts dev/shm dev main_storage; do
+for mnt in sys proc dev/pts dev/shm dev; do
     umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
 done
 rm -rf "$CHROOT_DIR"
@@ -32,8 +32,6 @@ apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support de
 DEB_VER="${1:-$DEF_VER}"
 debootstrap --no-check-gpg --foreign --arch amd64 "$DEB_VER" "$CHROOT_DIR" http://archive.debian.org/debian
 
-mkdir -p "$CHROOT_DIR/main_storage"
-
 # Create setup_amd64 script
 cat <<'EOF' > /usr/bin/setup_amd64
 #!/bin/bash
@@ -42,7 +40,6 @@ mountpoint -q /amd64/proc || mount -t proc proc /amd64/proc/
 mount --bind /dev /amd64/dev/
 mount --bind /dev/pts /amd64/dev/pts/
 mount --bind /dev/shm /amd64/dev/shm/
-mount --bind / /amd64/main_storage
 mount --bind /etc/resolv.conf /amd64/etc/resolv.conf
 EOF
 chmod 755 /usr/bin/setup_amd64
