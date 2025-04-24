@@ -15,7 +15,7 @@ echo 'Proceed? Doing so will remove an existing amd64-arm environment, if presen
 read
 
 # Remove existing chroot
-for mnt in sys proc dev/pts dev/shm dev; do
+for mnt in dev/shm dev/pts dev proc sys; do
     umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
 done
 rm -rf "$CHROOT_DIR"
