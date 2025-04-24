@@ -57,6 +57,7 @@ chmod 755 /usr/bin/setup_amd64
 cat <<'EOF' > /etc/systemd/system/setup_amd64.service
 [Unit]
 Description=Service to setup amd64 chroot environment
+After=local-fs.target
 
 [Service]
 Type=oneshot
