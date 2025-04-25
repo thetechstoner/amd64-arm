@@ -3,15 +3,15 @@ Set up an emulated Debian 64-bit (amd64) environment on an ARM computer/SBC. Req
 
 ## Tested hardware
 
-1. Raspberry Pi 4B
+Raspberry Pi 4B
 
 You need to download amd64-arm at https://raw.githubusercontent.com/thetechstoner/amd64-arm/refs/heads/main/amd64-arm and run the below commands in the terminal:
 
 ```
-chmod +x <FULL_PATH_TO_amd64-arm>
-sudo <FULL_PATH_TO_amd64-arm>
+chmod +x <path_to_amd64-arm>
+sudo <path_to_amd64-arm>
 or
-sudo <FULL_PATH_TO_amd64-arm> <debian_version_codename>
+sudo <path_to_amd64-arm> <debian_codename>
 ```
 # usage
 amd64 # access chroot terminal
