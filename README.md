@@ -19,8 +19,8 @@ or
 sudo <FULL_PATH_TO_DOWNLOADED_FILE> <debian_version_codename>
 ```
 # usage
-amd64 # access chroot environment
+amd64 # access chroot terminal
 
-exit # exit chroot environment
+exit # exit chroot terminal
 
 or run amd64.desktop
