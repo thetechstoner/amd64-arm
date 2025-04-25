@@ -92,7 +92,7 @@ chroot "$CHROOT_DIR" apt-get update
 chroot "$CHROOT_DIR" bash -c "apt-get install locales -y && sed -i '/en_US.UTF-8 UTF-8/ s/# *//' /etc/locale.gen && locale-gen && update-locale LANG=en_US.UTF-8"
 
 # create schroot config
-USER=$(whoami)
+USER="${SUDO_USER:-$(whoami)}"
 cat <<EOF > /etc/schroot/chroot.d/amd64.conf
 [amd64]
 description=Debian amd64 chroot
