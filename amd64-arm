@@ -89,7 +89,8 @@ chroot "$CHROOT_DIR" /debootstrap/debootstrap --second-stage
 chroot "$CHROOT_DIR" apt-get update
 
 # Setup locale
-chroot "$CHROOT_DIR" bash -c "apt-get install locales -y && sed -i '/en_US.UTF-8 UTF-8/ s/# *//' /etc/locale.gen && locale-gen && update-locale LANG=en_US.UTF-8"
+SYSTEM_LOCALE="${LC_ALL:-${LANG:-en_US.UTF-8}}"
+chroot "$CHROOT_DIR" bash -c "apt-get install locales -y && sed -i \"/$SYSTEM_LOCALE UTF-8/ s/^# *//\" /etc/locale.gen && locale-gen && update-locale LANG=$SYSTEM_LOCALE"
 
 # create schroot config
 USER="${SUDO_USER:-$(whoami)}"
