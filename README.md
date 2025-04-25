@@ -24,3 +24,4 @@ amd64 # access chroot terminal
 exit # exit chroot terminal
 
 or run amd64.desktop
+To run: Menu > Accessories > amd64-arm - Terminal
