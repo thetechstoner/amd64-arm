@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-DEF_VER=stretch
+DEF_VER=bookworm
 CHROOT_DIR=/amd64
 
 # Check if root
