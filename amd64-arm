@@ -112,7 +112,7 @@ cat <<'EOF' > /usr/share/applications/amd64.desktop
 Name=amd64-arm - Terminal
 Type=Application
 Comment=Launch amd64-arm environment
-Exec=lxterminal --title="amd64-arm - Terminal" -e "schroot -c amd64 /bin/bash"
+Exec=lxterminal --title="Terminal (amd64)" -e "schroot -c amd64 /bin/bash"
 Icon=terminal
 Terminal=false
 Categories=Utility;
