@@ -109,7 +109,7 @@ chmod 644 /etc/schroot/chroot.d/amd64.conf
 mkdir -p /usr/share/applications/
 cat <<'EOF' > /usr/share/applications/amd64.desktop
 [Desktop Entry]
-Name=amd64-arm - Terminal
+Name=Terminal - amd64-arm
 Type=Application
 Comment=Launch amd64-arm environment
 Exec=lxterminal --title="Terminal (amd64)" -e "schroot -c amd64 /bin/bash"
