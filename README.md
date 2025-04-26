@@ -20,4 +20,4 @@ exit # exit chroot terminal
 
 or run amd64.desktop
 
-Menu > Accessories > amd64-arm - Terminal
+Menu > Accessories > Terminal (amd64)
