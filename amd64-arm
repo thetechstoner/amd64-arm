@@ -40,7 +40,7 @@ if [[ "${1:-}" == "uninstall" ]]; then
     echo "Uninstalling amd64 chroot environment..."
 
     # Unmount bind mounts and special filesystems
-    for mnt in dev/snd dev/shm dev/pts dev proc sys; do
+    for mnt in dev/snd dev/shm dev/pts etc/resolv.conf tmp/.X11-unix dev proc sys tmp; do
         umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
     done
 
@@ -87,7 +87,7 @@ echo 'Proceed? Doing so will remove an existing amd64-arm environment, if presen
 read
 
 # Remove existing chroot
-for mnt in dev/snd dev/shm dev/pts dev proc sys; do
+for mnt in dev/snd dev/shm dev/pts etc/resolv.conf tmp/.X11-unix dev proc sys tmp; do
     umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
 done
 rm -rf "$CHROOT_DIR"
@@ -122,6 +122,8 @@ mount --bind /dev /amd64/dev/
 mount --bind /dev/pts /amd64/dev/pts/
 mount --bind /dev/shm /amd64/dev/shm/
 mount --bind /dev/snd /amd64/dev/snd/
+mount --bind /tmp /amd64/tmp/
+mount --bind /tmp/.X11-unix /amd64/tmp/.X11-unix/
 mount --bind /etc/resolv.conf /amd64/etc/resolv.conf
 EOF
 chmod 755 /usr/bin/setup_amd64
