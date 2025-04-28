@@ -121,6 +121,7 @@ mountpoint -q /amd64/proc || mount -t proc proc /amd64/proc/
 mount --bind /dev /amd64/dev/
 mount --bind /dev/pts /amd64/dev/pts/
 mount --bind /dev/shm /amd64/dev/shm/
+mount --bind /dev/snd /amd64/dev/snd/
 mount --bind /etc/resolv.conf /amd64/etc/resolv.conf
 EOF
 chmod 755 /usr/bin/setup_amd64
