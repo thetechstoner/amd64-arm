@@ -57,6 +57,9 @@ if [[ "${1:-}" == "uninstall" ]]; then
 
     # Remove desktop launcher and launcher script
     rm -f /usr/share/applications/amd64.desktop
+    rm -f /usr/share/applications/*-amd64.desktop
+    find /usr/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+    find /usr/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
     rm -f /usr/bin/amd64
 
     systemctl daemon-reload
@@ -72,13 +75,77 @@ if [[ "${1:-}" == "install-deb" && -n "${2:-}" ]]; then
         echo "Error: .deb file not found: $DEB_FILE"
         exit 1
     fi
-    
     echo "Installing $DEB_FILE in chroot environment..."
-    cp "$DEB_FILE" "$CHROOT_DIR/tmp/"
+    mkdir -p "$CHROOT_DIR/tmp/install-deb/"
+    cp "$DEB_FILE" "$CHROOT_DIR/tmp/install-deb/"
+    cd "$CHROOT_DIR/tmp/install-deb/"
     DEB_FILENAME=$(basename "$DEB_FILE")
-    chroot "$CHROOT_DIR" dpkg -i "/tmp/$DEB_FILENAME"
+    chroot "$CHROOT_DIR" dpkg -i "/tmp/install-deb/$DEB_FILENAME"
     chroot "$CHROOT_DIR" apt-get install -f -y
-    rm -f "$CHROOT_DIR/tmp/$DEB_FILENAME"
+    # install desktop-file and icons to system from deb file
+    if dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep -q '^\.*/usr/share/applications/'; then
+        desktop_files=$(dpkg-deb --contents "$DEB_FILENAME" | awk '{print $NF}' | grep '^\.\/usr\/share\/applications\/.*\.desktop$')
+        mkdir -p desktop-files/
+        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar xvf - --xform='s|.*/||' -C desktop-files $desktop_files
+        for file in desktop-files/*.desktop; do
+            # Only modify if not already appended
+            sed -i '/^Name=/ s/\(.*\)\( (amd64)\)\?$/\1 (amd64)/' "$file"
+        done
+        for file in desktop-files/*.desktop; do
+            # Only modify if not already appended
+            sed -i '/^Icon=/ s/\(.*\)\(-amd64\)\?$/\1-amd64/' "$file"
+        done
+        for file in desktop-files/*.desktop; do
+            # only modify if not already Prepended
+            sed -i '/^Exec=/ {/Exec=schroot -c amd64 /! s|^Exec=\(.*\)|Exec=schroot -c amd64 \1|}' "$file"
+        done
+        find desktop-files -type f -iname "*.desktop" | while read file; do
+            dir=$(dirname "$file")
+            base=$(basename "$file")
+            name="${base%.*}"
+            ext="${base##*.}"
+            mv "$file" "$dir/${name}-amd64.${ext}"
+        done
+        desktop-file-install --dir=/usr/share/applications/ desktop-files/*.desktop
+        update-desktop-database
+        rm -r ./desktop-files
+    fi
+    shopt -s nullglob
+    if dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep -q '^\.*/usr/share/icons/'; then
+        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep '^\.*/usr/share/icons/.*\.\(png\|svg\|xpm\|jpg\)$' > files-to-extract.txt
+        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -xv --strip-components=3 -T files-to-extract.txt
+        find icons -type f \( -iname "*.png" -o -iname "*.svg" -o -iname "*.xpm" -o -iname "*.jpg" \) | while read file; do
+        dir=$(dirname "$file")
+        base=$(basename "$file")
+        name="${base%.*}"
+        ext="${base##*.}"
+        mv "$file" "$dir/${name}-amd64.${ext}"
+        done
+        rm files-to-extract.txt
+        if [ -d ./icons ] && [ "$(ls -A ./icons)" ]; then
+            mv ./icons/* /usr/share/icons/
+            rm -r ./icons
+            gtk-update-icon-cache /usr/share/icons
+        fi
+    fi
+    if dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep -q '^\.*/usr/share/pixmaps/'; then
+        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep '^\.*/usr/share/pixmaps/.*\.\(png\|svg\|xpm\|jpg\)$' > files-to-extract.txt
+        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -xv --strip-components=3 -T files-to-extract.txt
+        find pixmaps -type f \( -iname "*.png" -o -iname "*.svg" -o -iname "*.xpm" -o -iname "*.jpg" \) | while read file; do
+        dir=$(dirname "$file")
+        base=$(basename "$file")
+        name="${base%.*}"
+        ext="${base##*.}"
+        mv "$file" "$dir/${name}-amd64.${ext}"
+        done
+        rm files-to-extract.txt
+        if [ -d ./pixmaps ] && [ "$(ls -A ./pixmaps)" ]; then
+            mv ./pixmaps/* /usr/share/pixmaps/
+            rm -r ./pixmaps
+            gtk-update-icon-cache /usr/share/pixmaps
+        fi
+    fi
+    rm -rf "$CHROOT_DIR/tmp/install-deb/"
     echo "Installation complete."
     exit 0
 fi
@@ -87,10 +154,25 @@ echo 'Proceed? Doing so will remove an existing amd64-arm environment, if presen
 read
 
 # Remove existing chroot
+# Unmount bind mounts and special filesystems
 for mnt in dev/snd dev/shm dev/pts etc/resolv.conf tmp/.X11-unix dev proc sys tmp; do
     umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
 done
+# Remove chroot directory
 rm -rf "$CHROOT_DIR"
+# Remove schroot config
+rm -f /etc/schroot/chroot.d/amd64.conf
+# Remove systemd service and script
+systemctl disable --now setup_amd64.service &>/dev/null || true
+rm -f /etc/systemd/system/setup_amd64.service
+rm -f /usr/bin/setup_amd64
+# Remove desktop launcher and launcher script
+rm -f /usr/share/applications/amd64.desktop
+rm -f /usr/share/applications/*-amd64.desktop
+find /usr/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+find /usr/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+rm -f /usr/bin/amd64
+systemctl daemon-reload
 
 # Install dependencies
 if ! command -v apt-get &>/dev/null; then
