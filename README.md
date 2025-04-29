@@ -36,3 +36,6 @@ exit # exit chroot terminal
 run amd64.desktop
 
 Menu > Accessories > Terminal (amd64)
+
+run win64 and Win32 applications on arm64 Linux
+https://github.com/AndreRH/hangover
