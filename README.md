@@ -20,6 +20,10 @@ sudo <path_to_amd64-arm> <debian_codename>
 chmod +x <path_to_amd64-arm>
 sudo <path_to_amd64-arm> install-deb <path_to_deb_file>
 
+# uninstall .deb file in chroot environment
+chmod +x <path_to_amd64-arm>
+sudo <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
+
 # uninstall
 chmod +x <path_to_amd64-arm>
 sudo <path_to_amd64-arm> uninstall
