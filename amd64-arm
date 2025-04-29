@@ -13,6 +13,10 @@ sudo <path_to_amd64-arm> <debian_codename>
 chmod +x <path_to_amd64-arm>
 sudo <path_to_amd64-arm> install-deb <path_to_deb_file>
 
+# uninstall .deb file in chroot environment
+chmod +x <path_to_amd64-arm>
+sudo <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
+
 # uninstall
 chmod +x <path_to_amd64-arm>
 sudo <path_to_amd64-arm> uninstall
@@ -147,6 +151,48 @@ if [[ "${1:-}" == "install-deb" && -n "${2:-}" ]]; then
     fi
     rm -rf "$CHROOT_DIR/tmp/install-deb/"
     echo "Installation complete."
+    exit 0
+fi
+
+# .deb file uninstall in chroot
+if [[ "${1:-}" == "uninstall-deb" && -n "${2:-}" ]]; then
+    DEB_FILE="$2"
+    if [[ ! -f "$DEB_FILE" ]]; then
+        echo "Error: .deb file not found: $DEB_FILE"
+        exit 1
+    fi
+    echo "Uninstalling package from $DEB_FILE in chroot environment..."
+    
+    # Extract package name from .deb
+    PKG_NAME=$(dpkg-deb -f "$DEB_FILE" Package)
+    
+    # Remove desktop files
+    if dpkg-deb --fsys-tarfile "$DEB_FILE" | tar -tf - | grep -q '^\.*/usr/share/applications/'; then
+        desktop_files=$(dpkg-deb --contents "$DEB_FILE" | awk '{print $NF}' | grep '^\.\/usr\/share\/applications\/.*\.desktop$')
+        for file in $desktop_files; do
+            base_name=$(basename "$file")
+            modified_name="${base_name%.*}-amd64.${base_name##*.}"
+            rm -f "/usr/share/applications/$modified_name"
+        done
+        update-desktop-database
+    fi
+    
+    # Remove icons
+    for dir_type in icons pixmaps; do
+        if dpkg-deb --fsys-tarfile "$DEB_FILE" | tar -tf - | grep -q "^\.*/usr/share/$dir_type/"; then
+            icon_files=$(dpkg-deb --contents "$DEB_FILE" | awk '{print $NF}' | grep "\.\/usr\/share\/$dir_type\/.*\.\(png\|svg\|xpm\|jpg\)$")
+            for file in $icon_files; do
+                base_name=$(basename "$file")
+                modified_name="${base_name%.*}-amd64.${base_name##*.}"
+                rm -f "/usr/share/$dir_type/$modified_name"
+            done
+            gtk-update-icon-cache "/usr/share/$dir_type/"
+        fi
+    done
+    
+    # Purge package from chroot
+    chroot "$CHROOT_DIR" dpkg --purge "$PKG_NAME"
+    echo "Uninstallation complete."
     exit 0
 fi
 
