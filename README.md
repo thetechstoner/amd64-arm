@@ -1,5 +1,5 @@
 # amd64-arm
-Setup emulated Debian 64-bit (amd64) environment on ARM computer/SBC. Requires Debian or Debian derivatives like Raspberry Pi OS.
+Setup emulated Debian 64-bit (amd64) environment on ARM computer/SBC. Requires Debian-based host system like Raspberry Pi OS.
 
 ## Tested hardware
 
