@@ -44,7 +44,7 @@ if [[ "${1:-}" == "uninstall" ]]; then
     echo "Uninstalling amd64 chroot environment..."
 
     # Unmount bind mounts and special filesystems
-    for mnt in dev/snd dev/shm dev/pts etc/resolv.conf tmp/.X11-unix dev proc sys tmp; do
+    for mnt in dev/snd dev/shm dev/pts dev/binderfs etc/resolv.conf sys/fs/cgroup tmp/.X11-unix dev proc sys run tmp; do
         umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
     done
 
@@ -201,7 +201,7 @@ read
 
 # Remove existing chroot
 # Unmount bind mounts and special filesystems
-for mnt in dev/snd dev/shm dev/pts etc/resolv.conf tmp/.X11-unix dev proc sys tmp; do
+for mnt in dev/snd dev/shm dev/pts dev/binderfs sys/fs/cgroup etc/resolv.conf tmp/.X11-unix dev proc sys run tmp; do
     umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
 done
 # Remove chroot directory
@@ -244,15 +244,22 @@ debootstrap --no-check-gpg --foreign --arch amd64 "$DEB_VER" "$CHROOT_DIR" "$DEB
 # Create setup_amd64 script
 cat <<'EOF' > /usr/bin/setup_amd64
 #!/bin/bash
-mountpoint -q /amd64/sys || mount -t sysfs sys /amd64/sys/
-mountpoint -q /amd64/proc || mount -t proc proc /amd64/proc/
-mount --bind /dev /amd64/dev/
-mount --bind /dev/pts /amd64/dev/pts/
-mount --bind /dev/shm /amd64/dev/shm/
-mount --bind /dev/snd /amd64/dev/snd/
-mount --bind /tmp /amd64/tmp/
-mount --bind /tmp/.X11-unix /amd64/tmp/.X11-unix/
+# Essential kernel filesystems
+mountpoint -q /amd64/sys || mount -t sysfs sys /amd64/sys
+mountpoint -q /amd64/proc || mount -t proc proc /amd64/proc
+# Device nodes
+mount --bind /dev /amd64/dev
+mountpoint -q /amd64/dev/pts || mount -t devpts -o gid=5,mode=620 devpts /amd64/dev/pts
+mount --bind /dev/shm /amd64/dev/shm
+mount --bind /dev/snd /amd64/dev/snd
+# Temporary files and X11
+mount --bind /tmp /amd64/tmp
+mount --bind /tmp/.X11-unix /amd64/tmp/.X11-unix
+# Network configuration
 mount --bind /etc/resolv.conf /amd64/etc/resolv.conf
+# Additional recommended mounts
+mount --bind /run /amd64/run
+mount --bind /sys/fs/cgroup /amd64/sys/fs/cgroup
 EOF
 chmod 755 /usr/bin/setup_amd64
 
@@ -293,7 +300,7 @@ chroot "$CHROOT_DIR" apt-get update
 
 # Setup locale
 SYSTEM_LOCALE="${LC_ALL:-${LANG:-en_US.UTF-8}}"
-chroot "$CHROOT_DIR" bash -c "apt-get install locales -y && sed -i \"/$SYSTEM_LOCALE UTF-8/ s/^# *//\" /etc/locale.gen && locale-gen && update-locale LANG=$SYSTEM_LOCALE"
+chroot "$CHROOT_DIR" bash -c "apt-get install locales -y; if grep -q '^# *$SYSTEM_LOCALE UTF-8' /etc/locale.gen; then sed -i '/^# *$SYSTEM_LOCALE UTF-8/ s/^# *//' /etc/locale.gen; fi; locale-gen; update-locale LANG=$SYSTEM_LOCALE"
 
 # create schroot config
 USER="${SUDO_USER:-$(whoami)}"
