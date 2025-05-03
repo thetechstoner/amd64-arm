@@ -7,7 +7,7 @@ Raspberry Pi 4B
 
 download amd64-arm at https://raw.githubusercontent.com/thetechstoner/amd64-arm/refs/heads/main/amd64-arm
 
-run below commands in terminal:
+setup commands in terminal:
 
 ```
 # install debian bookworm
@@ -37,16 +37,16 @@ usage:
 # access chroot terminal (root)
 amd64
 
-# exit chroot terminal
-exit
-
 # chroot terminal as root
 schroot -c amd64 -u root -d /home
 
 # chroot terminal as user
 schroot -c amd64 -u $USER -d /home
 
-run amd64.desktop
+# exit chroot terminal
+exit
+
+# run amd64.desktop
 Menu > Accessories > Terminal (amd64)
 ```
 
