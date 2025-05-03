@@ -40,7 +40,7 @@ exit
 # run amd64.desktop
 Menu > Accessories > Terminal (amd64)
 
-win64/Win32 applications on arm64 Linux https://github.com/AndreRH/hangover
+win64/Win32 apps on arm64 Linux https://github.com/AndreRH/hangover
 COMMENT
 
 set -euo pipefail
