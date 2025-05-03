@@ -30,8 +30,10 @@ sudo <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
 chmod +x <path_to_amd64-arm>
 sudo <path_to_amd64-arm> uninstall
 ```
-# usage
 
+usage:
+
+```
 access chroot terminal (root)
 
 amd64
@@ -51,6 +53,7 @@ schroot -c amd64 -u $USER -d /home
 run amd64.desktop
 
 Menu > Accessories > Terminal (amd64)
+```
 
 run win64 and Win32 applications on arm64 Linux
 https://github.com/AndreRH/hangover
