@@ -219,7 +219,7 @@ if ! command -v apt-get &>/dev/null; then
     exit 1
 fi
 apt-get update
-apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal schroot curl
+apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils schroot curl
 
 # Setup Debian x86 chroot
 DEB_VER="${1:-$DEF_VER}"
@@ -290,11 +290,26 @@ cat <<'EOF' > /usr/share/applications/amd64.desktop
 Name=Terminal (amd64)
 Type=Application
 Comment=Launch amd64-arm environment
-Exec=lxterminal --title="Terminal - amd64-arm" -e "schroot -c amd64 -d /home /bin/bash"
+Exec=bash -c 'echo -ne "\033]0;Terminal amd64-arm\007"; exec /usr/bin/amd64'
+Icon=terminal
+Terminal=true
+Categories=Utility;
+EOF
+
+: << 'COMMENT'
+# Create desktop launcher alternative
+mkdir -p /usr/share/applications
+cat <<'EOF' > /usr/share/applications/amd64.desktop
+[Desktop Entry]
+Name=Terminal (amd64)
+Type=Application
+Comment=Launch amd64-arm environment
+Exec=x-terminal-emulator --title="Terminal amd64-arm" -e "/usr/bin/amd64"
 Icon=terminal
 Terminal=false
 Categories=Utility;
 EOF
+COMMENT
 
 # Create launcher script
 cat <<'EOF' > /usr/bin/amd64
