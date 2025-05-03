@@ -22,14 +22,20 @@ chmod +x <path_to_amd64-arm>
 sudo <path_to_amd64-arm> uninstall
 
 # usage
-amd64 # access chroot terminal
-exit # exit chroot terminal
 
-schroot -c amd64 -u root -d /home # chroot terminal as root
+# access chroot terminal
+amd64
 
-schroot -c amd64 -u $USER -d /home # chroot terminal as user
+# exit chroot terminal
+exit
 
-run amd64.desktop
+# chroot terminal as root
+schroot -c amd64 -u root -d /home
+
+# chroot terminal as user
+schroot -c amd64 -u $USER -d /home
+
+# run amd64.desktop
 Menu > Accessories > Terminal (amd64)
 COMMENT
 
