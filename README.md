@@ -35,11 +35,10 @@ amd64 # access chroot terminal
 
 exit # exit chroot terminal
 
-# chroot terminal as root
-schroot -c amd64 -u root -d /home
 
-## chroot terminal as user
-schroot -c amd64 -u $USER -d /home
+schroot -c amd64 -u root -d /home # chroot terminal as root
+
+schroot -c amd64 -u $USER -d /home # chroot terminal as user
 
 run amd64.desktop
 
