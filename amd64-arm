@@ -290,26 +290,11 @@ cat <<'EOF' > /usr/share/applications/amd64.desktop
 Name=Terminal (amd64)
 Type=Application
 Comment=Launch amd64-arm environment
-Exec=bash -c 'echo -ne "\033]0;Terminal amd64-arm\007"; exec /usr/bin/amd64'
-Icon=terminal
-Terminal=true
-Categories=Utility;
-EOF
-
-: << 'COMMENT'
-# Create desktop launcher alternative
-mkdir -p /usr/share/applications
-cat <<'EOF' > /usr/share/applications/amd64.desktop
-[Desktop Entry]
-Name=Terminal (amd64)
-Type=Application
-Comment=Launch amd64-arm environment
 Exec=x-terminal-emulator --title="Terminal amd64-arm" -e "/usr/bin/amd64"
 Icon=terminal
 Terminal=false
 Categories=Utility;
 EOF
-COMMENT
 
 # Create launcher script
 cat <<'EOF' > /usr/bin/amd64
