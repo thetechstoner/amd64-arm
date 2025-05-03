@@ -8,7 +8,6 @@ Raspberry Pi 4B
 download amd64-arm at https://raw.githubusercontent.com/thetechstoner/amd64-arm/refs/heads/main/amd64-arm
 
 setup commands in terminal:
-
 ```
 # install debian bookworm
 chmod +x <path_to_amd64-arm>
@@ -32,7 +31,6 @@ sudo <path_to_amd64-arm> uninstall
 ```
 
 usage:
-
 ```
 # access chroot terminal (root)
 amd64
@@ -49,6 +47,5 @@ exit
 # run amd64.desktop
 Menu > Accessories > Terminal (amd64)
 ```
-
 run win64 and Win32 applications on arm64 Linux
 https://github.com/AndreRH/hangover
