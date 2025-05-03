@@ -96,7 +96,7 @@ if [[ "${1:-}" == "install-deb" && -n "${2:-}" ]]; then
         done
         for file in desktop-files/*.desktop; do
             # only modify if not already Prepended
-            sed -i '/^Exec=/ {/Exec=schroot -c amd64 /! s|^Exec=\(.*\)|Exec=schroot -c amd64 \1|}' "$file"
+            sed -i '/^Exec=/ {/Exec=schroot -c amd64 -u root -d /home /! s|^Exec=\(.*\)|Exec=schroot -c amd64 -u root -d /home \1|}' "$file"
         done
         find desktop-files -type f -iname "*.desktop" | while read file; do
             dir=$(dirname "$file")
