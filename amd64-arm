@@ -61,7 +61,8 @@ if [[ "${1:-}" == "uninstall" ]]; then
     find /usr/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
     find /usr/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
     rm -f /usr/bin/amd64
-
+    update-desktop-database
+    gtk-update-icon-cache
     echo "Uninstall complete."
     exit 0
 fi
