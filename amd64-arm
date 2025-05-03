@@ -290,7 +290,7 @@ cat <<'EOF' > /usr/share/applications/amd64.desktop
 Name=Terminal (amd64)
 Type=Application
 Comment=Launch amd64-arm environment
-Exec=lxterminal --title="Terminal - amd64-arm" -e "schroot -c amd64 /bin/bash"
+Exec=lxterminal --title="Terminal - amd64-arm" -e "schroot -c amd64 -d /home /bin/bash"
 Icon=terminal
 Terminal=false
 Categories=Utility;
@@ -299,7 +299,7 @@ EOF
 # Create launcher script
 cat <<'EOF' > /usr/bin/amd64
 #!/bin/bash
-schroot -c amd64 /bin/bash
+schroot -c amd64 -d /home /bin/bash
 EOF
 chmod 755 /usr/bin/amd64
 
