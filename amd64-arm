@@ -53,11 +53,7 @@ if [[ "${1:-}" == "uninstall" ]]; then
 
     # Remove schroot config
     rm -f /etc/schroot/chroot.d/amd64.conf
-
-    # Remove systemd service and script
-    systemctl disable --now setup_amd64.service &>/dev/null || true
-    rm -f /etc/systemd/system/setup_amd64.service
-    rm -f /usr/bin/setup_amd64
+    rm -rf /etc/schroot/amd64
 
     # Remove desktop launcher and launcher script
     rm -f /usr/share/applications/amd64.desktop
@@ -65,8 +61,6 @@ if [[ "${1:-}" == "uninstall" ]]; then
     find /usr/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
     find /usr/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
     rm -f /usr/bin/amd64
-
-    systemctl daemon-reload
 
     echo "Uninstall complete."
     exit 0
@@ -84,8 +78,8 @@ if [[ "${1:-}" == "install-deb" && -n "${2:-}" ]]; then
     cp "$DEB_FILE" "$CHROOT_DIR/tmp/install-deb/"
     cd "$CHROOT_DIR/tmp/install-deb/"
     DEB_FILENAME=$(basename "$DEB_FILE")
-    chroot "$CHROOT_DIR" dpkg -i "/tmp/install-deb/$DEB_FILENAME"
-    chroot "$CHROOT_DIR" apt-get install -f -y
+    chroot "$CHROOT_DIR" apt-get update && chroot "$CHROOT_DIR" apt install -y "/tmp/install-deb/$DEB_FILENAME"
+    chroot $CHROOT_DIR apt --fix-broken install -y
     # install desktop-file and icons to system from deb file
     if dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep -q '^\.*/usr/share/applications/'; then
         desktop_files=$(dpkg-deb --contents "$DEB_FILENAME" | awk '{print $NF}' | grep '^\.\/usr\/share\/applications\/.*\.desktop$')
@@ -208,17 +202,15 @@ done
 rm -rf "$CHROOT_DIR"
 # Remove schroot config
 rm -f /etc/schroot/chroot.d/amd64.conf
-# Remove systemd service and script
-systemctl disable --now setup_amd64.service &>/dev/null || true
-rm -f /etc/systemd/system/setup_amd64.service
-rm -f /usr/bin/setup_amd64
+rm -rf /etc/schroot/amd64
 # Remove desktop launcher and launcher script
 rm -f /usr/share/applications/amd64.desktop
 rm -f /usr/share/applications/*-amd64.desktop
 find /usr/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
 find /usr/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
 rm -f /usr/bin/amd64
-systemctl daemon-reload
+update-desktop-database
+gtk-update-icon-cache
 
 # Install dependencies
 if ! command -v apt-get &>/dev/null; then
@@ -240,47 +232,6 @@ else
     apt-get install -y debian-archive-keyring
 fi
 debootstrap --no-check-gpg --foreign --arch amd64 "$DEB_VER" "$CHROOT_DIR" "$DEB_MIRROR"
-
-# Create setup_amd64 script
-cat <<'EOF' > /usr/bin/setup_amd64
-#!/bin/bash
-# Essential kernel filesystems
-mountpoint -q /amd64/sys || mount -t sysfs sys /amd64/sys
-mountpoint -q /amd64/proc || mount -t proc proc /amd64/proc
-# Device nodes
-mount --bind /dev /amd64/dev
-mountpoint -q /amd64/dev/pts || mount -t devpts -o gid=5,mode=620 devpts /amd64/dev/pts
-mount --bind /dev/shm /amd64/dev/shm
-mount --bind /dev/snd /amd64/dev/snd
-# Temporary files and X11
-mount --bind /tmp /amd64/tmp
-mount --bind /tmp/.X11-unix /amd64/tmp/.X11-unix
-# Network configuration
-mount --bind /etc/resolv.conf /amd64/etc/resolv.conf
-# Additional recommended mounts
-mount --bind /run /amd64/run
-mount --bind /sys/fs/cgroup /amd64/sys/fs/cgroup
-EOF
-chmod 755 /usr/bin/setup_amd64
-
-# Create systemd service
-cat <<'EOF' > /etc/systemd/system/setup_amd64.service
-[Unit]
-Description=Service to setup amd64 chroot environment
-After=local-fs.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/bin/setup_amd64
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable setup_amd64
-systemctl start setup_amd64
 
 # Copy qemu binary
 if [[ -f /usr/bin/qemu-x86_64-static ]]; then
@@ -311,12 +262,28 @@ directory=/amd64
 users=$USER
 root-users=$USER
 type=directory
+setup.fstab=amd64/fstab
+EOF
+mkdir -p /etc/schroot/amd64
+cat <<EOF > /etc/schroot/amd64/fstab
+/proc           /proc           none    rw,bind         0       0
+/sys            /sys            none    rw,bind         0       0
+/dev            /dev            none    rw,bind         0       0
+/dev/pts        /dev/pts        none    rw,bind         0       0
+/dev/shm        /dev/shm        none    rw,bind         0       0
+/dev/snd        /dev/snd        none    rw,bind         0       0
+/dev/binderfs   /dev/binderfs   none    rw,bind         0       0
+/tmp            /tmp            none    rw,bind         0       0
+/tmp/.X11-unix  /tmp/.X11-unix  none    rw,bind         0       0
+/etc/resolv.conf /etc/resolv.conf none  rw,bind         0       0
+/run            /run            none    rw,bind         0       0
+/sys/fs/cgroup  /sys/fs/cgroup  none    rw,bind         0       0
 EOF
 chown root:root /etc/schroot/chroot.d/amd64.conf
 chmod 644 /etc/schroot/chroot.d/amd64.conf
 
 # Create desktop launcher
-mkdir -p /usr/share/applications/
+mkdir -p /usr/share/applications
 cat <<'EOF' > /usr/share/applications/amd64.desktop
 [Desktop Entry]
 Name=Terminal (amd64)
