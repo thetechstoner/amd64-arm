@@ -5,8 +5,10 @@ Setup emulated Debian 64-bit (amd64) environment on ARM computer/SBC. Requires D
 
 Raspberry Pi 4B
 
-download amd64-arm at https://raw.githubusercontent.com/thetechstoner/amd64-arm/refs/heads/main/amd64-arm
-
+download amd64-arm:
+```
+curl -LO https://raw.githubusercontent.com/thetechstoner/amd64-arm/main/amd64-arm
+```
 setup commands in terminal:
 ```
 # install debian bookworm
