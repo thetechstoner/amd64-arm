@@ -9,7 +9,7 @@ download amd64-arm:
 ```
 curl -LO https://raw.githubusercontent.com/thetechstoner/amd64-arm/main/amd64-arm
 ```
-setup commands in terminal:
+setup command options in terminal:
 ```
 # install debian bookworm
 chmod +x <path_to_amd64-arm>
