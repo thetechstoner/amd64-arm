@@ -13,23 +13,23 @@ setup command options in terminal:
 ```
 # install debian bookworm
 chmod +x <path_to_amd64-arm>
-sudo <path_to_amd64-arm>
+sudo ./<path_to_amd64-arm>
 
 # install (choose debian version)
 chmod +x <path_to_amd64-arm>
-sudo <path_to_amd64-arm> <debian_codename>
+sudo ./<path_to_amd64-arm> <debian_codename>
 
 # install .deb file in chroot environment
 chmod +x <path_to_amd64-arm>
-sudo <path_to_amd64-arm> install-deb <path_to_deb_file>
+sudo ./<path_to_amd64-arm> install-deb <path_to_deb_file>
 
 # uninstall .deb file in chroot environment
 chmod +x <path_to_amd64-arm>
-sudo <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
+sudo ./<path_to_amd64-arm> uninstall-deb <path_to_deb_file>
 
 # uninstall
 chmod +x <path_to_amd64-arm>
-sudo <path_to_amd64-arm> uninstall
+sudo ./<path_to_amd64-arm> uninstall
 ```
 
 usage:
