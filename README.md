@@ -23,13 +23,13 @@ sudo bash <path_to_amd64-arm> <debian_codename>
 chmod +x <path_to_amd64-arm>
 sudo bash <path_to_amd64-arm> uninstall
 
-# chroot environment install .deb file
+# schroot environment install .deb file
 chmod +x <path_to_amd64-arm>
-sudo bash <path_to_amd64-arm> install-deb <path_to_deb_file>
+bash <path_to_amd64-arm> install-deb <path_to_deb_file>
 
-# chroot environment uninstall .deb file
+# schroot environment uninstall .deb file
 chmod +x <path_to_amd64-arm>
-sudo bash <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
+bash <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
 ```
 
 usage:
