@@ -15,13 +15,13 @@ sudo bash <path_to_amd64-arm> <debian_codename>
 chmod +x <path_to_amd64-arm>
 sudo bash <path_to_amd64-arm> uninstall
 
-# chroot environment install .deb file
+# schroot environment install .deb file
 chmod +x <path_to_amd64-arm>
-sudo bash <path_to_amd64-arm> install-deb <path_to_deb_file>
+bash <path_to_amd64-arm> install-deb <path_to_deb_file>
 
-# chroot environment uninstall .deb file
+# schroot environment uninstall .deb file
 chmod +x <path_to_amd64-arm>
-sudo bash <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
+bash <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
 
 usage:
 
@@ -49,10 +49,12 @@ set -euo pipefail
 DEF_VER=bookworm
 CHROOT_DIR=/amd64
 
-# Check if root
-if [[ $(id -u) -ne 0 ]]; then
-    echo 'Requires root. Exiting...'
-    exit 1
+# Check for root (NOT for install-deb or uninstall-deb)
+if [[ "${1:-}" != "install-deb" && "${1:-}" != "uninstall-deb" ]]; then
+    if [[ $(id -u) -ne 0 ]]; then
+        echo 'Requires root. Exiting...'
+        exit 1
+    fi
 fi
 
 if [[ "${1:-}" == "uninstall" ]]; then
