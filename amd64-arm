@@ -47,6 +47,7 @@ COMMENT
 set -euo pipefail
 
 DEF_VER=bookworm
+CHROOT_NAME="amd64"
 CHROOT_DIR=/amd64
 
 # Check for root (NOT for install-deb/uninstall-deb)
