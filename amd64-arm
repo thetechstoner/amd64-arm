@@ -49,7 +49,7 @@ set -euo pipefail
 DEF_VER=bookworm
 CHROOT_DIR=/amd64
 
-# Check for root (NOT for install-deb or uninstall-deb)
+# Check for root (NOT for install-deb/uninstall-deb)
 if [[ "${1:-}" != "install-deb" && "${1:-}" != "uninstall-deb" ]]; then
     if [[ $(id -u) -ne 0 ]]; then
         echo 'Requires root. Exiting...'
