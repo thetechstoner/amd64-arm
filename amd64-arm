@@ -85,126 +85,159 @@ if [[ "${1:-}" == "uninstall" ]]; then
     exit 0
 fi
 
-# .deb file installation in chroot
+# .deb file installation in schroot
 if [[ "${1:-}" == "install-deb" && -n "${2:-}" ]]; then
+    # --- Validation Section ---
     DEB_FILE="$2"
-    if [[ ! -f "$DEB_FILE" ]]; then
-        echo "Error: .deb file not found: $DEB_FILE"
-        exit 1
-    fi
-    echo "Installing $DEB_FILE in chroot environment..."
-    mkdir -p "$CHROOT_DIR/tmp/install-deb/"
-    cp "$DEB_FILE" "$CHROOT_DIR/tmp/install-deb/"
-    cd "$CHROOT_DIR/tmp/install-deb/"
+    [[ -f "$DEB_FILE" ]] || { echo "Error: .deb file not found: $DEB_FILE"; exit 1; }
+
+    # --- Setup Section ---
+    echo "Installing $DEB_FILE in schroot environment..."
+    WORK_DIR="/tmp/install-deb-$(date +%s)"
+    schroot -c "$CHROOT_NAME" -u root -d /home -- mkdir -p "$WORK_DIR"
+    cp "$DEB_FILE" "${CHROOT_DIR}/tmp/"
+    schroot -c "$CHROOT_NAME" -u root -d /home -- mv "/tmp/$DEB_FILE" "${WORK_DIR}/"
     DEB_FILENAME=$(basename "$DEB_FILE")
-    chroot "$CHROOT_DIR" apt-get update && chroot "$CHROOT_DIR" apt install -y "/tmp/install-deb/$DEB_FILENAME"
-    chroot $CHROOT_DIR apt --fix-broken install -y
-    # install desktop-file and icons to system from deb file
-    if dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep -q '^\.*/usr/share/applications/'; then
-        desktop_files=$(dpkg-deb --contents "$DEB_FILENAME" | awk '{print $NF}' | grep '^\.\/usr\/share\/applications\/.*\.desktop$')
-        mkdir -p desktop-files/
-        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar xvf - --xform='s|.*/||' -C desktop-files $desktop_files
-        for file in desktop-files/*.desktop; do
-            # Only modify if not already appended
-            sed -i '/^Name=/ s/\(.*\)\( (amd64)\)\?$/\1 (amd64)/' "$file"
+
+    # --- Installation Section ---
+    (
+        set -eo pipefail
+        schroot -c "$CHROOT_NAME" -u root -d /home -- apt-get update
+        schroot -c "$CHROOT_NAME" -u root -d /home -- apt install -y "${WORK_DIR}/${DEB_FILENAME}"
+        schroot -c "$CHROOT_NAME" -u root -d /home -- apt --fix-broken install -y
+    ) || { echo "Installation failed"; schroot -c "$CHROOT_NAME" -u root -d /home -- rm -rf "$WORK_DIR"; exit 1; }
+
+    # --- Desktop File Processing ---
+    process_desktop_files() {
+        local desktop_files
+        desktop_files=$(dpkg-deb --contents "$DEB_FILE" | awk -F' ' '{print $NF}' | grep -E '\./usr/share/applications/.*\.desktop$')
+        
+        [[ -n "$desktop_files" ]] || return 0
+        
+        mkdir -p "$HOME/host-desktop-files/"
+        dpkg-deb --fsys-tarfile "$DEB_FILE" | tar xvf - --strip-components=3 -C "$HOME/host-desktop-files" $(echo "$desktop_files" | sed 's/^\.//') 2>/dev/null
+        
+        for file in "$HOME"/host-desktop-files/*.desktop; do
+            [ -f "$file" ] || continue
+            # Modify for schroot execution
+            sed -i -r \
+                -e '/^Name=/ s/$/ (amd64)/' \
+                -e '/^Icon=/ s/$/-amd64/' \
+                -e '/^Exec=/ s|^Exec=(.*)|Exec=schroot -c '"${CHROOT_NAME}"' -d /home \1|' \
+                "$file"
+            
+            if desktop-file-validate "$file"; then
+                desktop-file-install --dir="$HOME/.local/share/applications/" "$file"
+            else
+                echo "Invalid desktop file: $file" >&2
+            fi
         done
-        for file in desktop-files/*.desktop; do
-            # Only modify if not already appended
-            sed -i '/^Icon=/ s/\(.*\)\(-amd64\)\?$/\1-amd64/' "$file"
+        update-desktop-database "$HOME/.local/share/applications/"
+    }
+
+    # --- Icon Processing ---
+    process_icons() {
+        local icon_dir=$1
+        local files_to_extract
+        
+        files_to_extract=$(dpkg-deb --fsys-tarfile "$DEB_FILE" | tar -tf - | grep -E "\./${icon_dir}/.*\.(png|svg|xpm|jpg)$")
+        
+        [[ -n "$files_to_extract" ]] || return 0
+        
+        mkdir -p "$HOME/extracted-icons/"
+        dpkg-deb --fsys-tarfile "$DEB_FILE" | tar xvf - --strip-components=3 -C "$HOME/extracted-icons" $(echo "$files_to_extract" | sed 's/^\.//') 2>/dev/null
+        
+        find "$HOME"/extracted-icons -type f | while read -r file; do
+            new_file="${file%.*}-amd64.${file##*.}"
+            install -Dm644 "$file" "$HOME/.local/share/icons/${icon_dir}/$new_file"
         done
-        for file in desktop-files/*.desktop; do
-            # only modify if not already Prepended
-            sed -i '/^Exec=/ {/Exec=schroot -c amd64 -u root -d /home /! s|^Exec=\(.*\)|Exec=schroot -c amd64 -u root -d /home \1|}' "$file"
-        done
-        find desktop-files -type f -iname "*.desktop" | while read file; do
-            dir=$(dirname "$file")
-            base=$(basename "$file")
-            name="${base%.*}"
-            ext="${base##*.}"
-            mv "$file" "$dir/${name}-amd64.${ext}"
-        done
-        desktop-file-install --dir=/usr/share/applications/ desktop-files/*.desktop
-        update-desktop-database
-        rm -r ./desktop-files
-    fi
-    shopt -s nullglob
-    if dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep -q '^\.*/usr/share/icons/'; then
-        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep '^\.*/usr/share/icons/.*\.\(png\|svg\|xpm\|jpg\)$' > files-to-extract.txt
-        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -xv --strip-components=3 -T files-to-extract.txt
-        find icons -type f \( -iname "*.png" -o -iname "*.svg" -o -iname "*.xpm" -o -iname "*.jpg" \) | while read file; do
-        dir=$(dirname "$file")
-        base=$(basename "$file")
-        name="${base%.*}"
-        ext="${base##*.}"
-        mv "$file" "$dir/${name}-amd64.${ext}"
-        done
-        rm files-to-extract.txt
-        if [ -d ./icons ] && [ "$(ls -A ./icons)" ]; then
-            mv ./icons/* /usr/share/icons/
-            rm -r ./icons
-            gtk-update-icon-cache /usr/share/icons
-        fi
-    fi
-    if dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep -q '^\.*/usr/share/pixmaps/'; then
-        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -tf - | grep '^\.*/usr/share/pixmaps/.*\.\(png\|svg\|xpm\|jpg\)$' > files-to-extract.txt
-        dpkg-deb --fsys-tarfile "$DEB_FILENAME" | tar -xv --strip-components=3 -T files-to-extract.txt
-        find pixmaps -type f \( -iname "*.png" -o -iname "*.svg" -o -iname "*.xpm" -o -iname "*.jpg" \) | while read file; do
-        dir=$(dirname "$file")
-        base=$(basename "$file")
-        name="${base%.*}"
-        ext="${base##*.}"
-        mv "$file" "$dir/${name}-amd64.${ext}"
-        done
-        rm files-to-extract.txt
-        if [ -d ./pixmaps ] && [ "$(ls -A ./pixmaps)" ]; then
-            mv ./pixmaps/* /usr/share/pixmaps/
-            rm -r ./pixmaps
-            gtk-update-icon-cache /usr/share/pixmaps
-        fi
-    fi
-    rm -rf "$CHROOT_DIR/tmp/install-deb/"
+        
+        gtk-update-icon-cache "$HOME/.local/share/icons/${icon_dir}/"
+    }
+
+    # --- Execution Section ---
+    (
+        cd "${CHROOT_DIR}${WORK_DIR}" || exit 1
+        process_desktop_files
+        process_icons "icons"
+        process_icons "pixmaps"
+    )
+
+    # --- Cleanup ---
+    schroot -c "$CHROOT_NAME" -u root -d /home -- rm -rf "$WORK_DIR"
+    rm -rf "$HOME/host-desktop-files" "$HOME/extracted-icons"
     echo "Installation complete."
     exit 0
 fi
 
-# .deb file uninstall in chroot
+# .deb file uninstall in schroot
 if [[ "${1:-}" == "uninstall-deb" && -n "${2:-}" ]]; then
+    # --- Validation Section ---
     DEB_FILE="$2"
-    if [[ ! -f "$DEB_FILE" ]]; then
-        echo "Error: .deb file not found: $DEB_FILE"
+    [[ -f "$DEB_FILE" ]] || { echo "Error: .deb file not found: $DEB_FILE" >&2; exit 1; }
+
+    # --- Package Extraction ---
+    PKG_NAME=$(dpkg-deb -f "$DEB_FILE" Package 2>/dev/null) || {
+        echo "Error: Failed to extract package name from $DEB_FILE" >&2
         exit 1
+    }
+
+    echo "Uninstalling $PKG_NAME from schroot environment..."
+
+    # --- Desktop File Removal ---
+    remove_desktop_files() {
+        local desktop_files
+        desktop_files=$(dpkg-deb --showformat='${Files}' -W "$DEB_FILE" | 
+                        grep -o '/usr/share/applications/[^ ]*\.desktop')
+        
+        [[ -z "$desktop_files" ]] && return 0
+
+        while IFS= read -r -d '' file; do
+            base_name="${file##*/}"
+            host_file="$HOME/.local/share/applications/${base_name%.*}-amd64.desktop"
+            [[ -f "$host_file" ]] && rm -v "$host_file"
+        done < <(echo "$desktop_files" | tr '\n' '\0')
+
+        update-desktop-database "$HOME/.local/share/applications/"
+    }
+
+    # --- Icon Removal ---
+    remove_icons() {
+        local icon_dir="$1"
+        local icon_files
+        
+        icon_files=$(dpkg-deb --showformat='${Files}' -W "$DEB_FILE" | 
+                    grep -E -o "/usr/share/${icon_dir}/[^ ]*\\.(png|svg|xpm|jpg)")
+        
+        [[ -z "$icon_files" ]] && return 0
+
+        while IFS= read -r -d '' file; do
+            base_name="${file##*/}"
+            host_file="$HOME/.local/share/icons/${icon_dir}/${base_name%.*}-amd64.${base_name##*.}"
+            [[ -f "$host_file" ]] && rm -v "$host_file"
+        done < <(echo "$icon_files" | tr '\n' '\0')
+
+        gtk-update-icon-cache "$HOME/.local/share/icons/${icon_dir}/"
+    }
+
+    # --- Execution Section ---
+    (
+        set -eo pipefail
+        remove_desktop_files
+        remove_icons "icons"
+        remove_icons "pixmaps"
+    ) || echo "Warning: Some cleanup operations failed" >&2
+
+    # --- Package Purge ---
+    if schroot -c "$CHROOT_NAME" -u root -d /home -- dpkg-query -W "$PKG_NAME" >/dev/null 2>&1; then
+        schroot -c "$CHROOT_NAME" -u root -d /home -- dpkg --purge "$PKG_NAME" || {
+            echo "Error: Failed to purge package $PKG_NAME" >&2
+            exit 1
+        }
+    else
+        echo "Warning: Package $PKG_NAME not installed in schroot" >&2
     fi
-    echo "Uninstalling package from $DEB_FILE in chroot environment..."
-    
-    # Extract package name from .deb
-    PKG_NAME=$(dpkg-deb -f "$DEB_FILE" Package)
-    
-    # Remove desktop files
-    if dpkg-deb --fsys-tarfile "$DEB_FILE" | tar -tf - | grep -q '^\.*/usr/share/applications/'; then
-        desktop_files=$(dpkg-deb --contents "$DEB_FILE" | awk '{print $NF}' | grep '^\.\/usr\/share\/applications\/.*\.desktop$')
-        for file in $desktop_files; do
-            base_name=$(basename "$file")
-            modified_name="${base_name%.*}-amd64.${base_name##*.}"
-            rm -f "/usr/share/applications/$modified_name"
-        done
-        update-desktop-database
-    fi
-    
-    # Remove icons
-    for dir_type in icons pixmaps; do
-        if dpkg-deb --fsys-tarfile "$DEB_FILE" | tar -tf - | grep -q "^\.*/usr/share/$dir_type/"; then
-            icon_files=$(dpkg-deb --contents "$DEB_FILE" | awk '{print $NF}' | grep "\.\/usr\/share\/$dir_type\/.*\.\(png\|svg\|xpm\|jpg\)$")
-            for file in $icon_files; do
-                base_name=$(basename "$file")
-                modified_name="${base_name%.*}-amd64.${base_name##*.}"
-                rm -f "/usr/share/$dir_type/$modified_name"
-            done
-            gtk-update-icon-cache "/usr/share/$dir_type/"
-        fi
-    done
-    
-    # Purge package from chroot
-    chroot "$CHROOT_DIR" dpkg --purge "$PKG_NAME"
+
     echo "Uninstallation complete."
     exit 0
 fi
