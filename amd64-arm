@@ -1,7 +1,26 @@
 #!/bin/bash
 
 : << 'COMMENT'
-setup commands in terminal:
+user-mode emulation (schroot/chroot/proot)
+Emulation: User-mode (qemu-x86_64-static)
+Filesystem: Direct host bind mounts
+Networking: Shared host network stack
+Performance: Moderate (CPU emulation)
+Security: Potential breakout risks
+should not be relied upon for containing untrusted code
+
+schroot will not work for complex apps
+chromium/electron based apps wont work
+
+to run more apps use:
+kvm-hosted mode (qemu handles device emulation and kvm accelerates cpu execution)
+Emulation: Full system emulation with KVM
+Filesystem: Isolated virtual disk
+Networking: Virtual bridge (virbr0)
+Performance: Near-native (hardware virt)
+Security: Strong process isolation
+
+schroot setup commands in terminal:
 
 # install debian bookworm
 chmod +x <path_to_amd64-arm>
@@ -22,6 +41,10 @@ bash <path_to_amd64-arm> install-deb <path_to_deb_file>
 # schroot environment uninstall .deb file
 chmod +x <path_to_amd64-arm>
 bash <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
+
+# schroot environment integrate desktop and icon files in system (remove unused files)
+chmod +x <path_to_amd64-arm>
+bash <path_to_amd64-arm> integrate-system
 
 usage:
 
@@ -50,8 +73,8 @@ DEF_VER=bookworm
 CHROOT_NAME="amd64"
 CHROOT_DIR="/amd64"
 
-# Check for root (NOT for install-deb/uninstall-deb)
-if [[ "${1:-}" != "install-deb" && "${1:-}" != "uninstall-deb" ]]; then
+# Check for root (NOT install-deb,uninstall-deb,integrate-system)
+if [[ "${1:-}" != "install-deb" && "${1:-}" != "uninstall-deb" && "${1:-}" != "integrate-system" ]]; then
     if [[ $(id -u) -ne 0 ]]; then
         echo 'Requires root. Exiting...'
         exit 1
@@ -62,7 +85,7 @@ if [[ "${1:-}" == "uninstall" ]]; then
     echo "Uninstalling amd64 chroot environment..."
 
     # Unmount bind mounts and special filesystems
-    for mnt in dev/snd dev/shm dev/pts dev/binderfs etc/resolv.conf sys/fs/cgroup tmp/.X11-unix dev proc sys run tmp; do
+    for mnt in dev/snd dev/shm dev/pts dev/binderfs etc/resolv.conf sys/fs/cgroup tmp/.X11-unix run/dbus dev proc sys run tmp; do
         umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
     done
 
@@ -74,15 +97,80 @@ if [[ "${1:-}" == "uninstall" ]]; then
     rm -rf /etc/schroot/amd64
 
     # Remove desktop launcher and launcher script
-    rm -f /usr/share/applications/amd64.desktop
-    rm -f /usr/share/applications/*-amd64.desktop
-    find /usr/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
-    find /usr/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+    rm -f ~/.local/share/applications/amd64.desktop
+    rm -f ~/.local/share/applications/*-amd64.desktop
+    find ~/.local/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+    find ~/.local/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
     rm -f /usr/bin/amd64
     update-desktop-database
     gtk-update-icon-cache
     echo "Uninstall complete."
     exit 0
+fi
+
+# schroot environment integrate desktop and icon files in system (remove unused files)
+if [[ "${1:-}" == "integrate-system" ]]; then
+  SCHROOT_PREFIX="/amd64"
+  USER_APP_DIR="$HOME/.local/share/applications"
+  USER_ICON_DIR="$HOME/.local/share/icons"
+
+  mkdir -p "$USER_APP_DIR" "$USER_ICON_DIR"
+
+  echo "Copying and modifying .desktop files..."
+
+  for file in "$SCHROOT_PREFIX/usr/share/applications/"*.desktop; do
+    [ -f "$file" ] || continue
+    base=$(basename "$file" .desktop)
+    target="$USER_APP_DIR/${base}-amd64.desktop"
+    cp "$file" "$target"
+
+    # Get icon name (may be theme icon, so no extension)
+    orig_icon=$(grep -E '^Icon=' "$file" | head -1 | cut -d= -f2 | tr -d '[:space:]')
+    [ -z "$orig_icon" ] && orig_icon="$base"
+
+    # Recursively search for icon in icons and pixmaps directories
+    icon_file=""
+    icon_ext=""
+    icon_relpath=""
+    for ext in png svg xpm jpg; do
+      # Search in icons
+      found=$(find "$SCHROOT_PREFIX/usr/share/icons" "$SCHROOT_PREFIX/usr/share/pixmaps" \
+        -type f -iname "${orig_icon}.${ext}" 2>/dev/null | head -n1)
+      if [ -n "$found" ]; then
+        icon_file="$found"
+        icon_ext="$ext"
+        # Get relative path from SCHROOT_PREFIX
+        icon_relpath="${found#$SCHROOT_PREFIX/}"
+        break
+      fi
+    done
+
+    # If found, copy icon to user icon dir, preserving subdirs, but append -amd64
+    if [ -n "$icon_file" ]; then
+      icon_target="$USER_ICON_DIR/${icon_relpath%.*}-amd64.$icon_ext"
+      mkdir -p "$(dirname "$icon_target")"
+      cp "$icon_file" "$icon_target"
+      icon_for_desktop="${icon_relpath%.*}-amd64"
+      # Remove leading directories for Icon= field (just the name)
+      icon_for_desktop=$(basename "$icon_for_desktop")
+    else
+      # If not found, just append -amd64 to original icon name for .desktop
+      icon_for_desktop="${orig_icon}-amd64"
+    fi
+
+    # Modify .desktop file
+    sed -i \
+      -e '/^Name=/ s/$/ (amd64)/' \
+      -e '/^Exec=/ c\Exec=schroot -c amd64 -u root -d /home -- /bin/bash -c "source ~/.bashrc; '"$base"' --no-sandbox --disable-gpu"' \
+      -e '/^Icon=/ s|=.*|='"$icon_for_desktop"'|' \
+      "$target"
+  done
+
+  echo "Updating desktop and icon caches..."
+  update-desktop-database "$USER_APP_DIR"
+  gtk-update-icon-cache "$USER_ICON_DIR" || true
+
+  echo "Integration complete."
 fi
 
 # .deb file installation in schroot
@@ -107,65 +195,8 @@ if [[ "${1:-}" == "install-deb" && -n "${2:-}" ]]; then
         schroot -c "$CHROOT_NAME" -u root -d /home -- apt --fix-broken install -y
     ) || { echo "Installation failed"; schroot -c "$CHROOT_NAME" -u root -d /home -- rm -rf "$WORK_DIR"; exit 1; }
 
-    # --- Desktop File Processing ---
-    process_desktop_files() {
-        local desktop_files
-        desktop_files=$(dpkg-deb --contents "$DEB_FILE" | awk -F' ' '{print $NF}' | grep -E '\./usr/share/applications/.*\.desktop$')
-        
-        [[ -n "$desktop_files" ]] || return 0
-        
-        mkdir -p "$HOME/host-desktop-files/"
-        dpkg-deb --fsys-tarfile "$DEB_FILE" | tar xvf - --strip-components=3 -C "$HOME/host-desktop-files" $(echo "$desktop_files" | sed 's/^\.//') 2>/dev/null
-        
-        for file in "$HOME"/host-desktop-files/*.desktop; do
-            [ -f "$file" ] || continue
-            # Modify for schroot execution
-            sed -i -r \
-                -e '/^Name=/ s/$/ (amd64)/' \
-                -e '/^Icon=/ s/$/-amd64/' \
-                -e '/^Exec=/ s|^Exec=(.*)|Exec=schroot -c '"${CHROOT_NAME}"' -d /home \1|' \
-                "$file"
-            
-            if desktop-file-validate "$file"; then
-                desktop-file-install --dir="$HOME/.local/share/applications/" "$file"
-            else
-                echo "Invalid desktop file: $file" >&2
-            fi
-        done
-        update-desktop-database "$HOME/.local/share/applications/"
-    }
-
-    # --- Icon Processing ---
-    process_icons() {
-        local icon_dir=$1
-        local files_to_extract
-        
-        files_to_extract=$(dpkg-deb --fsys-tarfile "$DEB_FILE" | tar -tf - | grep -E "\./${icon_dir}/.*\.(png|svg|xpm|jpg)$")
-        
-        [[ -n "$files_to_extract" ]] || return 0
-        
-        mkdir -p "$HOME/extracted-icons/"
-        dpkg-deb --fsys-tarfile "$DEB_FILE" | tar xvf - --strip-components=3 -C "$HOME/extracted-icons" $(echo "$files_to_extract" | sed 's/^\.//') 2>/dev/null
-        
-        find "$HOME"/extracted-icons -type f | while read -r file; do
-            new_file="${file%.*}-amd64.${file##*.}"
-            install -Dm644 "$file" "$HOME/.local/share/icons/${icon_dir}/$new_file"
-        done
-        
-        gtk-update-icon-cache "$HOME/.local/share/icons/${icon_dir}/"
-    }
-
-    # --- Execution Section ---
-    (
-        cd "${CHROOT_DIR}${WORK_DIR}" || exit 1
-        process_desktop_files
-        process_icons "icons"
-        process_icons "pixmaps"
-    )
-
     # --- Cleanup ---
     schroot -c "$CHROOT_NAME" -u root -d /home -- rm -rf "$WORK_DIR"
-    rm -rf "$HOME/host-desktop-files" "$HOME/extracted-icons"
     echo "Installation complete."
     exit 0
 fi
@@ -183,50 +214,6 @@ if [[ "${1:-}" == "uninstall-deb" && -n "${2:-}" ]]; then
     }
 
     echo "Uninstalling $PKG_NAME from schroot environment..."
-
-    # --- Desktop File Removal ---
-    remove_desktop_files() {
-        local desktop_files
-        desktop_files=$(dpkg-deb --showformat='${Files}' -W "$DEB_FILE" | 
-                        grep -o '/usr/share/applications/[^ ]*\.desktop')
-        
-        [[ -z "$desktop_files" ]] && return 0
-
-        while IFS= read -r -d '' file; do
-            base_name="${file##*/}"
-            host_file="$HOME/.local/share/applications/${base_name%.*}-amd64.desktop"
-            [[ -f "$host_file" ]] && rm -v "$host_file"
-        done < <(echo "$desktop_files" | tr '\n' '\0')
-
-        update-desktop-database "$HOME/.local/share/applications/"
-    }
-
-    # --- Icon Removal ---
-    remove_icons() {
-        local icon_dir="$1"
-        local icon_files
-        
-        icon_files=$(dpkg-deb --showformat='${Files}' -W "$DEB_FILE" | 
-                    grep -E -o "/usr/share/${icon_dir}/[^ ]*\\.(png|svg|xpm|jpg)")
-        
-        [[ -z "$icon_files" ]] && return 0
-
-        while IFS= read -r -d '' file; do
-            base_name="${file##*/}"
-            host_file="$HOME/.local/share/icons/${icon_dir}/${base_name%.*}-amd64.${base_name##*.}"
-            [[ -f "$host_file" ]] && rm -v "$host_file"
-        done < <(echo "$icon_files" | tr '\n' '\0')
-
-        gtk-update-icon-cache "$HOME/.local/share/icons/${icon_dir}/"
-    }
-
-    # --- Execution Section ---
-    (
-        set -eo pipefail
-        remove_desktop_files
-        remove_icons "icons"
-        remove_icons "pixmaps"
-    ) || echo "Warning: Some cleanup operations failed" >&2
 
     # --- Package Purge ---
     if schroot -c "$CHROOT_NAME" -u root -d /home -- dpkg-query -W "$PKG_NAME" >/dev/null 2>&1; then
@@ -247,7 +234,7 @@ read
 
 # Remove existing chroot
 # Unmount bind mounts and special filesystems
-for mnt in dev/snd dev/shm dev/pts dev/binderfs sys/fs/cgroup etc/resolv.conf tmp/.X11-unix dev proc sys run tmp; do
+for mnt in dev/snd dev/shm dev/pts dev/binderfs sys/fs/cgroup etc/resolv.conf tmp/.X11-unix run/dbus dev proc sys run tmp; do
     umount -l "$CHROOT_DIR/$mnt" &>/dev/null || true
 done
 # Remove chroot directory
@@ -256,10 +243,10 @@ rm -rf "$CHROOT_DIR"
 rm -f /etc/schroot/chroot.d/amd64.conf
 rm -rf /etc/schroot/amd64
 # Remove desktop launcher and launcher script
-rm -f /usr/share/applications/amd64.desktop
-rm -f /usr/share/applications/*-amd64.desktop
-find /usr/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
-find /usr/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+rm -f ~/.local/share/applications/amd64.desktop
+rm -f ~/.local/share/applications/*-amd64.desktop
+find ~/.local/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+find ~/.local/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
 rm -f /usr/bin/amd64
 update-desktop-database
 gtk-update-icon-cache
@@ -270,7 +257,7 @@ if ! command -v apt-get &>/dev/null; then
     exit 1
 fi
 apt-get update
-apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils schroot curl
+apt-get install -y qemu-system qemu-user qemu-user-static sudo binfmt-support debootstrap binutils schroot curl libasound2
 
 # Setup Debian x86 chroot
 DEB_VER="${1:-$DEF_VER}"
@@ -302,8 +289,87 @@ chroot "$CHROOT_DIR" /debootstrap/debootstrap --second-stage
 chroot "$CHROOT_DIR" apt-get update
 
 # Setup locale
+set_or_update_chroot_bashrc_variable() {
+    # Usage: set_or_update_chroot_bashrc_variable <VARIABLE_NAME> <VALUE> [CHROOT_DIR]
+    if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+        >&2 echo "Usage: set_or_update_chroot_bashrc_variable <VARIABLE_NAME> <VALUE> [CHROOT_DIR]"
+        return 1
+    fi
+
+    local var_name="$1"
+    local value="$2"
+    local chroot_dir="${3:-/amd64}"
+    local bashrc_file="${chroot_dir}/root/.bashrc"
+    local temp_file="${bashrc_file}.tmp"
+
+    # Ensure the .bashrc file exists
+    if [ ! -f "$bashrc_file" ]; then
+        touch "$bashrc_file"
+    fi
+
+    # Escape slashes and special chars in value for safe replacement
+    local escaped_value
+    escaped_value=$(printf '%s\n' "$value" | sed -e 's/[\/&]/\\&/g')
+
+    # Update or add the export line for the variable
+    if grep -q "^export ${var_name}=" "$bashrc_file"; then
+        # Variable exists, update its value using sed for simplicity
+        sed -i "s/^export ${var_name}=.*/export ${var_name}='${escaped_value}'/" "$bashrc_file"
+    else
+        # Variable doesn't exist, append it
+        echo "export ${var_name}='${value}'" >> "$bashrc_file"
+    fi
+}
+# Determine system locale, fallback to en_US.UTF-8 if not set
 SYSTEM_LOCALE="${LC_ALL:-${LANG:-en_US.UTF-8}}"
-chroot "$CHROOT_DIR" bash -c "apt-get install locales -y; if grep -q '^# *$SYSTEM_LOCALE UTF-8' /etc/locale.gen; then sed -i '/^# *$SYSTEM_LOCALE UTF-8/ s/^# *//' /etc/locale.gen; fi; locale-gen; update-locale LANG=$SYSTEM_LOCALE"
+# Set LANG and LC_ALL in the chroot's .bashrc
+set_or_update_chroot_bashrc_variable "LANG" "$SYSTEM_LOCALE" "$CHROOT_DIR"
+set_or_update_chroot_bashrc_variable "LC_ALL" "$SYSTEM_LOCALE" "$CHROOT_DIR"
+set_or_update_chroot_bashrc_variable "DISPLAY" ":0" "$CHROOT_DIR"
+set_or_update_chroot_bashrc_variable "LIBGL_ALWAYS_SOFTWARE" "1" "$CHROOT_DIR"
+# Generate the locale inside the chroot environment
+chroot "$CHROOT_DIR" bash -c "locale-gen '$SYSTEM_LOCALE'"
+# update the locale environment immediately inside the chroot
+chroot "$CHROOT_DIR" bash -c "update-locale LANG='$SYSTEM_LOCALE' LC_ALL='$SYSTEM_LOCALE'"
+
+# Install Mesa software rendering fallback
+chroot "$CHROOT_DIR" bash -c "apt-get install -y mesa-utils libgl1-mesa-glx"
+
+# Install for hardware acceleration (if supported)
+chroot "$CHROOT_DIR" bash -c "apt-get install -y libgl1-mesa-dri"
+
+# fix X11 server no authorization protocol specified
+bashrc_manage_line() {
+    # Usage:
+    #   bashrc_manage_line add    "line of text"
+    #   bashrc_manage_line remove "line of text"
+    local action="$1"
+    local line="$2"
+    local bashrc="$HOME/.bashrc"
+
+    if [[ -z "$action" || -z "$line" ]]; then
+        echo "Usage: bashrc_manage_line <add|remove> \"line of text\""
+        return 1
+    fi
+
+    case "$action" in
+        add)
+            if ! grep -Fxq "$line" "$bashrc"; then
+                echo "$line" >> "$bashrc"
+            fi
+            ;;
+        remove)
+            # Remove all exact matches of the line
+            grep -Fxv "$line" "$bashrc" > "${bashrc}.tmp" && mv "${bashrc}.tmp" "$bashrc"
+            ;;
+        *)
+            echo "Unknown action: $action"
+            echo "Usage: bashrc_manage_line <add|remove> \"line of text\""
+            return 1
+            ;;
+    esac
+}
+bashrc_manage_line add "xhost si:localuser:root >/dev/null 2>&1"
 
 # create schroot config
 USER="${SUDO_USER:-$(whoami)}"
@@ -329,14 +395,15 @@ cat <<EOF > /etc/schroot/amd64/fstab
 /tmp/.X11-unix  /tmp/.X11-unix  none    rw,bind         0       0
 /etc/resolv.conf /etc/resolv.conf none  rw,bind         0       0
 /run            /run            none    rw,bind         0       0
+/run/dbus       /run/dbus       none    rw,bind         0       0
 /sys/fs/cgroup  /sys/fs/cgroup  none    rw,bind         0       0
 EOF
 chown root:root /etc/schroot/chroot.d/amd64.conf
 chmod 644 /etc/schroot/chroot.d/amd64.conf
 
 # Create desktop launcher
-mkdir -p /usr/share/applications
-cat <<'EOF' > /usr/share/applications/amd64.desktop
+mkdir -p ~/.local/share/applications ~/.local/share/icons ~/.local/share/pixmaps
+cat <<'EOF' > ~/.local/share/applications/amd64.desktop
 [Desktop Entry]
 Name=Terminal (amd64)
 Type=Application
