@@ -1,6 +1,17 @@
 # amd64-arm
 Setup emulated Debian 64-bit (amd64) environment on ARM computer/SBC. Requires Debian-based host system like Raspberry Pi OS.
+```
+user-mode emulation (schroot/chroot/proot)
+Emulation: User-mode (qemu-x86_64-static)
+Filesystem: Direct host bind mounts
+Networking: Shared host network stack
+Performance: Moderate (CPU emulation)
+Security: Potential breakout risks
+should not be relied upon for containing untrusted code
 
+schroot will not work for complex apps
+chromium/electron based apps wont work
+```
 ## Tested hardware
 
 Raspberry Pi 4B
