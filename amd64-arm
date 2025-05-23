@@ -171,6 +171,7 @@ if [[ "${1:-}" == "integrate-system" ]]; then
   gtk-update-icon-cache "$USER_ICON_DIR" || true
 
   echo "Integration complete."
+  exit 0
 fi
 
 # .deb file installation in schroot
