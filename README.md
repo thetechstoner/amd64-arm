@@ -49,6 +49,10 @@ bash <path_to_amd64-arm> install-deb <path_to_deb_file>
 # schroot environment uninstall .deb file
 chmod +x <path_to_amd64-arm>
 bash <path_to_amd64-arm> uninstall-deb <path_to_deb_file>
+
+# schroot environment integrate desktop and icon files in system (remove unused files)
+chmod +x <path_to_amd64-arm>
+bash <path_to_amd64-arm> integrate-system
 ```
 
 usage:
