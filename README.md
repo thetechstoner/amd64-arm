@@ -11,6 +11,14 @@ should not be relied upon for containing untrusted code
 
 schroot will not work for complex apps
 chromium/electron based apps wont work
+
+to run more apps use:
+kvm-hosted mode (qemu handles device emulation and kvm accelerates cpu execution)
+Emulation: Full system emulation with KVM
+Filesystem: Isolated virtual disk
+Networking: Virtual bridge (virbr0)
+Performance: Near-native (hardware virt)
+Security: Strong process isolation
 ```
 ## Tested hardware
 
