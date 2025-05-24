@@ -113,7 +113,9 @@ if [[ "${1:-}" == "integrate-system" ]]; then
   SCHROOT_PREFIX="/amd64"
   USER_APP_DIR="$HOME/.local/share/applications"
   USER_ICON_DIR="$HOME/.local/share/icons"
-
+rm -f ~/.local/share/applications/*-amd64.desktop
+    find ~/.local/share/icons/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
+    find ~/.local/share/pixmaps/ -type f \( -iname '*-amd64.png' -o -iname '*-amd64.svg' -o -iname '*-amd64.xpm' -o -iname '*-amd64.jpg' \) -delete
   mkdir -p "$USER_APP_DIR" "$USER_ICON_DIR"
 
   echo "Copying and modifying .desktop files..."
