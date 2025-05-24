@@ -128,40 +128,53 @@ if [[ "${1:-}" == "integrate-system" ]]; then
     orig_icon=$(grep -E '^Icon=' "$file" | head -1 | cut -d= -f2 | tr -d '[:space:]')
     [ -z "$orig_icon" ] && orig_icon="$base"
 
-    # Recursively search for icon in icons and pixmaps directories
-    icon_file=""
-    icon_ext=""
-    icon_relpath=""
-    for ext in png svg xpm jpg; do
-      # Search in icons
-      found=$(find "$SCHROOT_PREFIX/usr/share/icons" "$SCHROOT_PREFIX/usr/share/pixmaps" \
-        -type f -iname "${orig_icon}.${ext}" 2>/dev/null | head -n1)
-      if [ -n "$found" ]; then
-        icon_file="$found"
-        icon_ext="$ext"
-        # Get relative path from SCHROOT_PREFIX
-        icon_relpath="${found#$SCHROOT_PREFIX/}"
-        break
-      fi
-    done
+    # Find all icon files matching the icon name in supported formats
+    mapfile -t icon_files < <(find "$SCHROOT_PREFIX/usr/share/icons" "$SCHROOT_PREFIX/usr/share/pixmaps" \
+      -type f \( -iname "${orig_icon}.png" -o -iname "${orig_icon}.svg" -o -iname "${orig_icon}.xpm" -o -iname "${orig_icon}.jpg" \) 2>/dev/null)
 
-    # If found, copy icon to user icon dir, preserving subdirs, but append -amd64
-    if [ -n "$icon_file" ]; then
-      icon_target="$USER_ICON_DIR/${icon_relpath%.*}-amd64.$icon_ext"
+    # Track if we found at least one icon
+    found_any_icon=false
+
+    for icon_file in "${icon_files[@]}"; do
+      found_any_icon=true
+      # Remove SCHROOT_PREFIX from path
+      icon_relpath="${icon_file#$SCHROOT_PREFIX/}"
+
+      # Only preserve path under hicolor or pixmaps (as appropriate)
+      if [[ "$icon_relpath" == usr/share/icons/* ]]; then
+        icon_relpath="${icon_relpath#usr/share/icons/}"
+      elif [[ "$icon_relpath" == usr/share/pixmaps/* ]]; then
+        icon_relpath="pixmaps/${icon_relpath#usr/share/pixmaps/}"
+      else
+        # If not matching, skip
+        continue
+      fi
+
+      # Build new filename with -amd64 suffix
+      filename=$(basename "$icon_relpath")
+      extension="${filename##*.}"
+      base_icon="${filename%.*}"
+      new_filename="${base_icon}-amd64.${extension}"
+      icon_target="$USER_ICON_DIR/$(dirname "$icon_relpath")/$new_filename"
+
+      # Ensure target directory exists and copy
       mkdir -p "$(dirname "$icon_target")"
       cp "$icon_file" "$icon_target"
-      icon_for_desktop="${icon_relpath%.*}-amd64"
-      # Remove leading directories for Icon= field (just the name)
-      icon_for_desktop=$(basename "$icon_for_desktop")
-    else
-      # If not found, just append -amd64 to original icon name for .desktop
-      icon_for_desktop="${orig_icon}-amd64"
-    fi
+    done
+
+    # For the .desktop Icon= field, just use the base icon name with -amd64
+    icon_for_desktop="${orig_icon}-amd64"
+
+    # Extract original Exec line (without 'Exec=')
+    orig_exec=$(grep -E '^Exec=' "$file" | head -1 | cut -d= -f2-)
+
+    # Build new Exec line
+    new_exec="schroot -c amd64 -u root -d /home -- /bin/bash -c \"source ~/.bashrc; $orig_exec --no-sandbox --disable-gpu\""
 
     # Modify .desktop file
     sed -i \
       -e '/^Name=/ s/$/ (amd64)/' \
-      -e '/^Exec=/ c\Exec=schroot -c amd64 -u root -d /home -- /bin/bash -c "source ~/.bashrc; '"$base"' --no-sandbox --disable-gpu"' \
+      -e '/^Exec=/ c\Exec='"$new_exec" \
       -e '/^Icon=/ s|=.*|='"$icon_for_desktop"'|' \
       "$target"
   done
