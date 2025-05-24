@@ -1,5 +1,5 @@
 # amd64-arm
-Setup emulated Debian 64-bit (amd64) environment on ARM computer/SBC. Requires Debian-based host system like Raspberry Pi OS.
+Setup emulated schroot Debian 64-bit (amd64) environment on ARM computer/SBC. Requires Debian-based host system like Raspberry Pi OS.
 ```
 user-mode emulation (schroot/chroot/proot)
 Emulation: User-mode (qemu-x86_64-static)
@@ -28,7 +28,7 @@ download amd64-arm:
 ```
 curl -LO https://raw.githubusercontent.com/thetechstoner/amd64-arm/main/amd64-arm
 ```
-setup command options in terminal:
+schroot setup command options in terminal:
 ```
 # install debian bookworm
 chmod +x <path_to_amd64-arm>
