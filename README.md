@@ -11,6 +11,7 @@ should not be relied upon for containing untrusted code
 
 schroot will not work for complex apps
 chromium/electron based apps wont work
+Terminal based programs only
 
 to run more apps use:
 kvm-hosted mode (qemu handles device emulation and kvm accelerates cpu execution)
