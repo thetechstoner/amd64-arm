@@ -1,4 +1,4 @@
-# amd64-arm
+# amd64-schroot
 Setup emulated schroot Debian 64-bit (amd64) environment on ARM computer/SBC. Requires Debian-based host system like Raspberry Pi OS.
 ```
 user-mode emulation (schroot/chroot/proot)
@@ -25,7 +25,7 @@ Security: Strong process isolation
 
 Raspberry Pi 4B
 
-download amd64-arm:
+download amd64-schroot:
 ```
 curl -LO https://raw.githubusercontent.com/thetechstoner/amd64-arm/main/amd64-arm
 ```
@@ -58,10 +58,9 @@ bash <path_to_amd64-arm> integrate-system
 
 usage:
 ```
-# access chroot terminal (root)
-amd64
-
 # chroot terminal as root
+amd64
+or
 schroot -c amd64 -u root -d /home
 
 # chroot terminal as user
